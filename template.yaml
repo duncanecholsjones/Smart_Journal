@@ -17,7 +17,7 @@ Resources:
   MyFunction:
     Type: AWS::Serverless::Function
     Properties:
-      Runtime: nodejs20.x # Choose your desired runtime
+      Runtime: python3.12
       Handler: src/app.handler # Adjust the handler path as necessary
       Environment:
         Variables:
