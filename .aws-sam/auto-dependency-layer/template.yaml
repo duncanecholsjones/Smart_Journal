@@ -1,0 +1,43 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lambda function with DynamoDB table using connectors.
+Resources:
+  MyTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+  MyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      CodeUri: MyFunction
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: MyTable
+      Layers:
+      - Fn::GetAtt:
+        - AwsSamAutoDependencyLayerNestedStack
+        - Outputs.MyFunctionbf3066d1DepLayer
+    Metadata:
+      SamResourceId: MyFunction
+  MyConnector:
+    Type: AWS::Serverless::Connector
+    Properties:
+      Source:
+        Id: MyFunction
+      Destination:
+        Id: MyTable
+      Permissions:
+      - Read
+      - Write
+  AwsSamAutoDependencyLayerNestedStack:
+    DeletionPolicy: Delete
+    Metadata:
+      CreatedBy: AWS SAM CLI sync command
+    Properties:
+      TemplateURL: C:\Users\dunca\OneDrive\Documents\Personal Project - Smart Journal\MyServerlessApp\.aws-sam\auto-dependency-layer\adl_nested_template.yaml
+    Type: AWS::CloudFormation::Stack
