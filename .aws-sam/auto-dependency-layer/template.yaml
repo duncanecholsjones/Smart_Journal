@@ -1,6 +1,7 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lambda function with DynamoDB table using connectors.
+Description: Lambda function with DynamoDB table using connectors and explicit IAM
+  permission.
 Resources:
   MyTable:
     Type: AWS::Serverless::SimpleTable
@@ -17,6 +18,10 @@ Resources:
       Environment:
         Variables:
           TABLE_NAME:
+            Ref: MyTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
             Ref: MyTable
       Layers:
       - Fn::GetAtt:
