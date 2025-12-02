@@ -24,6 +24,13 @@ Resources:
             Ref: JournalEntryTable
     Metadata:
       SamResourceId: LexFulfillmentLambda
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LexFulfillmentLambda
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
   LexJournalBotRole:
     Type: AWS::IAM::Role
     Properties:
@@ -33,7 +40,7 @@ Resources:
         - Effect: Allow
           Principal:
             Service:
-            - lex.amazonaws.com
+            - lexv2.amazonaws.com
             - lambda.amazonaws.com
           Action: sts:AssumeRole
       Policies:
@@ -47,6 +54,15 @@ Resources:
               Fn::GetAtt:
               - LexFulfillmentLambda
               - Arn
+      - PolicyName: PollyVoicePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - polly:SynthesizeSpeech
+            - polly:DescribeVoices
+            Resource: '*'
   LexJournalBot:
     Type: AWS::Lex::Bot
     Properties:
@@ -67,30 +83,24 @@ Resources:
         - Name: WriteJournalIntent
           Description: Provide a audio-based journal entry
           SampleUtterances:
-          - Utterance: I want to make an entry to my journal
-          - Utterance: Write this to my journal
-          - Utterance: Save this note
+          - Utterance: I want to make an entry to my journal {entry}
+          - Utterance: Write this to my journal {entry}
+          - Utterance: Save this {entry}
+          - Utterance: Send this {entry}
+          Slots:
+          - Name: entry
+            SlotTypeName: AMAZON.AlphaNumeric
+            ValueElicitationSetting:
+              SlotConstraint: Required
+              PromptSpecification:
+                MessageGroupsList:
+                - Message:
+                    PlainTextMessage:
+                      Value: What would you like to record in your journal?
+                MaxRetries: 2
+          SlotPriorities:
+          - SlotName: entry
+            Priority: 1
         - Name: FallbackIntent
           Description: Default intent when no other intent matches
           ParentIntentSignature: AMAZON.FallbackIntent
-  LexJournalBotVersion:
-    Type: AWS::Lex::BotVersion
-    Properties:
-      BotId:
-        Ref: LexJournalBot
-      BotVersionLocaleSpecification:
-      - LocaleId: en_US
-        BotVersionLocaleDetails:
-          SourceBotVersion: DRAFT
-  LexJournalBotAlias:
-    Type: AWS::Lex::BotAlias
-    Properties:
-      BotAliasName: prod
-      BotId:
-        Ref: LexJournalBot
-      BotVersion:
-        Fn::GetAtt:
-        - LexJournalBotVersion
-        - BotVersion
-      SentimentAnalysisSettings:
-        DetectSentiment: false

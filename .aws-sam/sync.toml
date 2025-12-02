@@ -2,12 +2,12 @@
 
 [sync_state]
 dependency_layer = true
-latest_infra_sync_time = "2025-12-01T19:19:10.287678+00:00"
+latest_infra_sync_time = "2025-12-02T22:40:37.732905+00:00"
 
 [resource_sync_states."AutoDependencyLayerParentSyncFlow:MyFunction"]
 hash = "10ced781717ac3db4082440a9ecbee96fec9f14cd3909b434452b45b08e88928"
 sync_time = "2025-11-21T00:31:50.769277+00:00"
 
 [resource_sync_states."AutoDependencyLayerParentSyncFlow:LexFulfillmentLambda"]
-hash = "73def7bc8bc8daba34f0345cda29bb5d9fa2a7961971b3fa399939c8f6923c34"
-sync_time = "2025-12-01T18:34:23.857944+00:00"
+hash = "a027277b7c2c5e8a3aae60a6bcc144ca741d869bcb7b2ed15f3106ea18b69aa6"
+sync_time = "2025-12-02T15:50:39.276079+00:00"
