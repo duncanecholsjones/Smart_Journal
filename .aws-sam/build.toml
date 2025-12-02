@@ -7,6 +7,6 @@ architecture = "x86_64"
 handler = "src/app.handler"
 manifest_hash = ""
 packagetype = "Zip"
-functions = ["MyFunction"]
+functions = ["LexFulfillmentLambda"]
 
 [layer_build_definitions]

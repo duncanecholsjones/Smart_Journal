@@ -1,44 +1,119 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lambda function with DynamoDB table using connectors and explicit IAM
-  permission.
+Description: Lex bot with Lambda fulfillment and DynamoDB
 Resources:
-  MyTable:
+  JournalEntryTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
       PrimaryKey:
         Name: id
         Type: String
-  MyFunction:
+  LexFulfillmentLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: python3.12
       Handler: app.lambda_handler
-      CodeUri: MyFunction
+      CodeUri: LexFulfillmentLambda
       Environment:
         Variables:
           TABLE_NAME:
-            Ref: MyTable
+            Ref: JournalEntryTable
       Policies:
       - DynamoDBCrudPolicy:
           TableName:
-            Ref: MyTable
+            Ref: JournalEntryTable
       Layers:
       - Fn::GetAtt:
         - AwsSamAutoDependencyLayerNestedStack
-        - Outputs.MyFunctionbf3066d1DepLayer
+        - Outputs.LexFulfillmentLambda69f56d60DepLayer
     Metadata:
-      SamResourceId: MyFunction
-  MyConnector:
-    Type: AWS::Serverless::Connector
+      SamResourceId: LexFulfillmentLambda
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
     Properties:
-      Source:
-        Id: MyFunction
-      Destination:
-        Id: MyTable
-      Permissions:
-      - Read
-      - Write
+      FunctionName:
+        Ref: LexFulfillmentLambda
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
+  LexJournalBotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lexv2.amazonaws.com
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: LexLambdaInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - LexFulfillmentLambda
+              - Arn
+      - PolicyName: PollyVoicePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - polly:SynthesizeSpeech
+            - polly:DescribeVoices
+            Resource: '*'
+  LexJournalBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: WriteJournalBot
+      Description: Bot for writing to my smart journal
+      RoleArn:
+        Fn::GetAtt:
+        - LexJournalBotRole
+        - Arn
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+      - LocaleId: en_US
+        NluConfidenceThreshold: 0.4
+        Intents:
+        - Name: WriteJournalIntent
+          Description: Provide a audio-based journal entry
+          SampleUtterances:
+          - Utterance: I want to make an entry to my journal
+          - Utterance: Write this to my journal
+          - Utterance: Save this
+        - Name: FallbackIntent
+          Description: Default intent when no other intent matches
+          ParentIntentSignature: AMAZON.FallbackIntent
+  LexJournalBotVersion:
+    Type: AWS::Lex::BotVersion
+    Properties:
+      BotId:
+        Ref: LexJournalBot
+      BotVersionLocaleSpecification:
+      - LocaleId: en_US
+        BotVersionLocaleDetails:
+          SourceBotVersion: DRAFT
+  LexJournalBotAlias:
+    Type: AWS::Lex::BotAlias
+    Properties:
+      BotAliasName: prod
+      BotId:
+        Ref: LexJournalBot
+      BotVersion:
+        Fn::GetAtt:
+        - LexJournalBotVersion
+        - BotVersion
+      SentimentAnalysisSettings:
+        DetectSentiment: false
   AwsSamAutoDependencyLayerNestedStack:
     DeletionPolicy: Delete
     Metadata:

@@ -4,19 +4,19 @@ Metadata:
   SamCliInfo: 1.147.1
   key: AWS SAM CLI sync command
 Outputs:
-  MyFunctionbf3066d1DepLayer:
+  LexFulfillmentLambda69f56d60DepLayer:
     Value:
-      Ref: MyFunctionbf3066d1DepLayer
+      Ref: LexFulfillmentLambda69f56d60DepLayer
 Resources:
-  MyFunctionbf3066d1DepLayer:
+  LexFulfillmentLambda69f56d60DepLayer:
     Metadata:
       CreatedBy: AWS SAM CLI sync command
     Properties:
       CompatibleRuntimes:
       - python3.12
-      ContentUri: C:\Users\dunca\OneDrive\Documents\Personal Project - Smart Journal\MyServerlessApp\.aws-sam\auto-dependency-layer\MyFunctionbf3066d1DepLayer
-      Description: Auto created layer for dependencies of function MyFunction
-      LayerName: SmartJournalStacb1233f80-MyFunctionbf3066d1-DepLayer
+      ContentUri: C:\Users\dunca\OneDrive\Documents\Personal Project - Smart Journal\MyServerlessApp\.aws-sam\auto-dependency-layer\LexFulfillmentLambda69f56d60DepLayer
+      Description: Auto created layer for dependencies of function LexFulfillmentLambda
+      LayerName: Smart-Journal-Stf29fe257-LexFulfillmentLambda69f56d60-DepLayer
       RetentionPolicy: Delete
     Type: AWS::Serverless::LayerVersion
 Transform: AWS::Serverless-2016-10-31
