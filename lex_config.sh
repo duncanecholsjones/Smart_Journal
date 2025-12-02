@@ -3,6 +3,7 @@ set -euo pipefail
 
 # Configuration, get these from the template.yaml file
 BOT_NAME="WriteJournalBot"
+BOT_VERSION="DRAFT"
 ALIAS_NAME="TestBotAlias"
 REGION="us-east-1"
 LOCALE_ID="en_US"
@@ -25,24 +26,6 @@ BOT_ID=$(
 
 if [[ -z "${BOT_ID}" ]]; then
   echo "ERROR: Could not find bot with name ${BOT_NAME}"
-  exit 1
-fi
-
-# Locate Latest Bot Version
-BOT_VERSION=$(
-  aws lexv2-models list-bot-versions \
-    --region "${REGION}" \
-    --bot-id "${BOT_ID}" \
-    --output json |
-  jq -r '
-    .botVersionSummaries[]
-    | select(.botVersion != "DRAFT" and .botStatus == "Available")
-    | .botVersion
-  ' | sort -V | tail -n1
-)
-
-if [[ -z "${BOT_VERSION}" ]]; then
-  echo "ERROR: No AVAILABLE non-DRAFT versions found"
   exit 1
 fi
 
@@ -104,7 +87,7 @@ aws lexv2-models update-bot-alias \
 
 aws lexv2-models update-bot-locale \
   --bot-id "${BOT_ID}" \
-  --bot-version "DRAFT" \
+  --bot-version "${BOT_VERSION}" \
   --locale-id "${LOCALE_ID}" \
   --voice-settings '{"voiceId":"Joanna","engine":"standard"}' \
   --nlu-intent-confidence-threshold 0.40
