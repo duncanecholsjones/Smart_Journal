@@ -3,7 +3,7 @@ Transform: AWS::Serverless-2016-10-31
 Description: Lex bot with Lambda fulfillment and DynamoDB
 
 Resources:
-
+  # DynamoDB table
   JournalEntryTable:
     Type: AWS::Serverless::SimpleTable
     Properties:
@@ -11,6 +11,7 @@ Resources:
         Name: id
         Type: String
 
+  # Lex Fulfillment Lambda
   LexFulfillmentLambda:
     Type: AWS::Serverless::Function
     Properties:
@@ -24,6 +25,7 @@ Resources:
         - DynamoDBCrudPolicy:
             TableName: !Ref JournalEntryTable
 
+  # Allow Lex to write to Lambda
   LexInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -31,6 +33,7 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: lexv2.amazonaws.com
 
+  # Execution role for Lex
   LexJournalBotRole:
     Type: AWS::IAM::Role
     Properties:
@@ -61,6 +64,7 @@ Resources:
                   - polly:DescribeVoices
                 Resource: "*"
 
+  # Lex speech and text bot
   LexJournalBot:
     Type: AWS::Lex::Bot
     Properties:
@@ -85,6 +89,7 @@ Resources:
               Description: "Default intent when no other intent matches"
               ParentIntentSignature: "AMAZON.FallbackIntent"                
 
+  # Provision BotVersion and BotAlias in order to have a development and production config
   LexJournalBotVersion:
     Type: AWS::Lex::BotVersion
     Properties:

@@ -11,6 +11,7 @@ def lambda_handler(event, context):
     table_name = os.getenv("TABLE_NAME")
     table = dynamodb.Table(table_name)
 
+    # "entry" is the actual slot name, but parse nested JSON until we get the final value
     try:
         user_input = event["sessionState"]["intent"]["slots"]["entry"]["value"][
             "interpretedValue"
@@ -29,6 +30,7 @@ def lambda_handler(event, context):
             ],
         }
 
+    # Id is just a timestamp, entryText is the actual journal entry
     item = {"id": str(time.time()), "entryText": user_input}
 
     try:
