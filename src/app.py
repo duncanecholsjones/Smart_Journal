@@ -20,7 +20,7 @@ def lex_response(intent_state: str, fulfillment_state: str, message: str):
 
 def extract_journal_entry(event):
     try:
-        return event["sessionState"]["intent"]["slots"]["entry"]["value"][
+        return event["sessionState"]["intent"]["slots"]["journalEntry"]["value"][
             "originalValue"
         ]
     except (KeyError, TypeError):

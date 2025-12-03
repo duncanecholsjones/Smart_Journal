@@ -1,6 +1,11 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lex bot with Lambda fulfillment and S3 journal storage (so Bedrock can query against it via RAG)
+Description: Lex bot with Lambda fulfillment, S3 storage, and Bedrock Knowledge Base RAG integration.
+
+Parameters:
+  KnowledgeBaseId:
+    Type: String
+    Description: "Your Bedrock Knowledge Base ID (create manually in console)"
 
 Resources:
   # S3 bucket for journal entries
@@ -44,7 +49,9 @@ Resources:
                 - lexv2.amazonaws.com
                 - lambda.amazonaws.com
             Action: sts:AssumeRole
+
       Policies:
+        # Allow Lex to call the fulfillment Lambda
         - PolicyName: LexLambdaInvokePolicy
           PolicyDocument:
             Version: "2012-10-17"
@@ -52,6 +59,8 @@ Resources:
               - Effect: Allow
                 Action: lambda:InvokeFunction
                 Resource: !GetAtt LexFulfillmentLambda.Arn
+
+        # Allow Lex to use Polly
         - PolicyName: PollyVoicePolicy
           PolicyDocument:
             Version: "2012-10-17"
@@ -62,12 +71,23 @@ Resources:
                   - polly:DescribeVoices
                 Resource: "*"
 
+        # Allow Lex to call Bedrock Knowledge Base
+        - PolicyName: BedrockKnowledgeBasePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:Retrieve
+                  - bedrock:RetrieveAndGenerate
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}"          
+
   # Lex Bot definition
   LexJournalBot:
     Type: AWS::Lex::Bot
     Properties:
       Name: "WriteJournalBot"
-      Description: "Bot for writing journal entries to S3"
+      Description: "Smart Journal Bot with S3 storage and Bedrock Knowledge Base RAG"
       RoleArn: !GetAtt LexJournalBotRole.Arn
       DataPrivacy:
         ChildDirected: false
@@ -79,13 +99,40 @@ Resources:
           Intents:
             - Name: WriteJournalIntent
               Description: "Provide a journal entry"
+              FulfillmentCodeHook:
+                Enabled: true
               SampleUtterances:
-                - Utterance: "I want to make an entry to my journal {entry}"
-                - Utterance: "Write this to my journal {entry}"
-                - Utterance: "Save this {entry}"
-                - Utterance: "Send this {entry}"
+                - Utterance: "I want to make an entry to my journal: {journalEntry}"
+                - Utterance: "Write this to my journal: {journalEntry}"
+                - Utterance: "Journal entry: {journalEntry}"
+                - Utterance: "Save this to my journal please: {journalEntry}"
+                - Utterance: "This needs to go into my journal: {journalEntry}"
+                - Utterance: "New addition to my journal: {journalEntry}"
+                - Utterance: "Here is a journal entry: {journalEntry}"
+                - Utterance: "I need this in my journal: {journalEntry}"
               Slots:
-                - Name: entry
+                - Name: journalEntry
+                  SlotTypeName: AMAZON.JournalEntry
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Value: "What would you like to record in your journal?"
+                      MaxRetries: 2
+              SlotPriorities:
+                - SlotName: entry
+                  Priority: 1
+            - Name: QueryJournalIntent
+              Description: "Ask questions about your journal entries"
+              FulfillmentCodeHook:
+                Enabled: false
+              SampleUtterances:
+                - Utterance: "Ask this {question}"
+                - Utterance: "I want to ask a question {question}"
+              Slots:
+                - Name: question
                   SlotTypeName: AMAZON.AlphaNumeric
                   ValueElicitationSetting:
                     SlotConstraint: Required
@@ -93,11 +140,13 @@ Resources:
                       MessageGroupsList:
                         - Message:
                             PlainTextMessage:
-                              Value: "What would you like to record?"
+                              Value: "What would you like to ask?"
                       MaxRetries: 2
               SlotPriorities:
-                - SlotName: entry
+                - SlotName: question
                   Priority: 1
+
+            # Fallback
             - Name: "FallbackIntent"
               Description: "Default intent when no intent matches"
               ParentIntentSignature: "AMAZON.FallbackIntent"
