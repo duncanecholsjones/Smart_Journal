@@ -33,7 +33,6 @@ def extract_journal_entry(event):
 
 
 def lambda_handler(event, context):
-    print(event)
     journal_entry = extract_journal_entry(event)
     if not journal_entry:
         return lex_response(
@@ -43,7 +42,7 @@ def lambda_handler(event, context):
         )
 
     item = {
-        "id": str(time.time()),
+        "id": str(int(time.time())),
         "entryText": journal_entry,
     }
 
