@@ -1,37 +1,152 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: A simple example of a Lambda function and a DynamoDB table with read/write access.
+Description: Lex bot with Lambda fulfillment, S3 storage, and Bedrock Knowledge Base RAG integration.
+
+Parameters:
+  KnowledgeBaseId:
+    Type: String
+    Description: "Your Bedrock Knowledge Base ID (create manually in console)"
 
 Resources:
-  # DynamoDB Table Resource
-  MyTable:
-    Type: AWS::Serverless::SimpleTable
+  # S3 bucket for journal entries
+  JournalBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      PrimaryKeyName: id
-      PrimaryKeyType: String
-      # Optional: ProvisionedThroughput:
-      #   ReadCapacityUnits: 5
-      #   WriteCapacityUnits: 5
+      BucketName: my-smart-journal-bucket
 
-  # Lambda Function Resource
-  MyFunction:
+  # Lex Fulfillment Lambda
+  LexFulfillmentLambda:
     Type: AWS::Serverless::Function
     Properties:
       Runtime: python3.12
-      Handler: src/app.handler # Adjust the handler path as necessary
+      Handler: app.lambda_handler
+      CodeUri: src/
       Environment:
         Variables:
-          TABLE_NAME: !Ref MyTable # Pass the table name to the Lambda function
-      Connectors:
-        MyConn:
-          Properties:
-            Destination:
-              Id: MyTable
-            Permissions:
-              - Read
-              - Write
-      # Optional: Use Policies property instead of Connectors for more granular control
-      # Policies:
-      #   - DynamoDBReadWritePolicy:
-      #       TableName: !Ref MyTable
+          BUCKET_NAME: !Ref JournalBucket
+      Policies:
+        - S3WritePolicy:
+            BucketName: !Ref JournalBucket
 
+  # Allow Lex to invoke Lambda
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LexFulfillmentLambda
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
+
+  # IAM Role for Lex
+  LexJournalBotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lexv2.amazonaws.com
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+
+      Policies:
+        # Allow Lex to call the fulfillment Lambda
+        - PolicyName: LexLambdaInvokePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: lambda:InvokeFunction
+                Resource: !GetAtt LexFulfillmentLambda.Arn
+
+        # Allow Lex to use Polly
+        - PolicyName: PollyVoicePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - polly:SynthesizeSpeech
+                  - polly:DescribeVoices
+                Resource: "*"
+
+        # Allow Lex to call Bedrock Knowledge Base
+        - PolicyName: BedrockKnowledgeBasePolicy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - bedrock:Retrieve
+                  - bedrock:RetrieveAndGenerate
+                Resource: !Sub "arn:aws:bedrock:${AWS::Region}:${AWS::AccountId}:knowledge-base/${KnowledgeBaseId}"          
+
+  # Lex Bot definition
+  LexJournalBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: "WriteJournalBot"
+      Description: "Smart Journal Bot with S3 storage and Bedrock Knowledge Base RAG"
+      RoleArn: !GetAtt LexJournalBotRole.Arn
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+        - LocaleId: en_US
+          NluConfidenceThreshold: 0.4
+          Intents:
+            - Name: WriteJournalIntent
+              Description: "Provide a journal entry"
+              FulfillmentCodeHook:
+                Enabled: true
+              SampleUtterances:
+                - Utterance: "I want to make an entry to my journal: {journalEntry}"
+                - Utterance: "Write this to my journal: {journalEntry}"
+                - Utterance: "Journal entry: {journalEntry}"
+                - Utterance: "Save this to my journal please: {journalEntry}"
+                - Utterance: "This needs to go into my journal: {journalEntry}"
+                - Utterance: "New addition to my journal: {journalEntry}"
+                - Utterance: "Here is a journal entry: {journalEntry}"
+                - Utterance: "I need this in my journal: {journalEntry}"
+              Slots:
+                - Name: journalEntry
+                  SlotTypeName: AMAZON.JournalEntry
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Value: "What would you like to record in your journal?"
+                      MaxRetries: 2
+              SlotPriorities:
+                - SlotName: entry
+                  Priority: 1
+            - Name: QueryJournalIntent
+              Description: "Ask questions about your journal entries"
+              FulfillmentCodeHook:
+                Enabled: false
+              SampleUtterances:
+                - Utterance: "Ask this {question}"
+                - Utterance: "I want to ask a question {question}"
+              Slots:
+                - Name: question
+                  SlotTypeName: AMAZON.AlphaNumeric
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Value: "What would you like to ask?"
+                      MaxRetries: 2
+              SlotPriorities:
+                - SlotName: question
+                  Priority: 1
+
+            # Fallback
+            - Name: "FallbackIntent"
+              Description: "Default intent when no intent matches"
+              ParentIntentSignature: "AMAZON.FallbackIntent"

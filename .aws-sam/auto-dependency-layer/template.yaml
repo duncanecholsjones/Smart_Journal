@@ -1,0 +1,117 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Lex bot with Lambda fulfillment and DynamoDB
+Resources:
+  JournalEntryTable:
+    Type: AWS::Serverless::SimpleTable
+    Properties:
+      PrimaryKey:
+        Name: id
+        Type: String
+  LexFulfillmentLambda:
+    Type: AWS::Serverless::Function
+    Properties:
+      Runtime: python3.12
+      Handler: app.lambda_handler
+      CodeUri: LexFulfillmentLambda
+      Environment:
+        Variables:
+          TABLE_NAME:
+            Ref: JournalEntryTable
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName:
+            Ref: JournalEntryTable
+      Layers:
+      - Fn::GetAtt:
+        - AwsSamAutoDependencyLayerNestedStack
+        - Outputs.LexFulfillmentLambda69f56d60DepLayer
+    Metadata:
+      SamResourceId: LexFulfillmentLambda
+  LexInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LexFulfillmentLambda
+      Action: lambda:InvokeFunction
+      Principal: lexv2.amazonaws.com
+  LexJournalBotRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - lexv2.amazonaws.com
+            - lambda.amazonaws.com
+          Action: sts:AssumeRole
+      Policies:
+      - PolicyName: LexLambdaInvokePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action: lambda:InvokeFunction
+            Resource:
+              Fn::GetAtt:
+              - LexFulfillmentLambda
+              - Arn
+      - PolicyName: PollyVoicePolicy
+        PolicyDocument:
+          Version: '2012-10-17'
+          Statement:
+          - Effect: Allow
+            Action:
+            - polly:SynthesizeSpeech
+            - polly:DescribeVoices
+            Resource: '*'
+  LexJournalBot:
+    Type: AWS::Lex::Bot
+    Properties:
+      Name: WriteJournalBot
+      Description: Bot for writing to my smart journal
+      RoleArn:
+        Fn::GetAtt:
+        - LexJournalBotRole
+        - Arn
+      DataPrivacy:
+        ChildDirected: false
+      IdleSessionTTLInSeconds: 300
+      AutoBuildBotLocales: true
+      BotLocales:
+      - LocaleId: en_US
+        NluConfidenceThreshold: 0.4
+        Intents:
+        - Name: WriteJournalIntent
+          Description: Provide a audio-based journal entry
+          SampleUtterances:
+          - Utterance: I want to make an entry to my journal {entry}
+          - Utterance: Write this to my journal {entry}
+          - Utterance: Save this {entry}
+          - Utterance: Send this {entry}
+          Slots:
+          - Name: entry
+            SlotTypeName: AMAZON.AlphaNumeric
+            ValueElicitationSetting:
+              SlotConstraint: Required
+              PromptSpecification:
+                MessageGroupsList:
+                - Message:
+                    PlainTextMessage:
+                      Value: What would you like to record in your journal?
+                MaxRetries: 2
+          SlotPriorities:
+          - SlotName: entry
+            Priority: 1
+        - Name: FallbackIntent
+          Description: Default intent when no other intent matches
+          ParentIntentSignature: AMAZON.FallbackIntent
+  AwsSamAutoDependencyLayerNestedStack:
+    DeletionPolicy: Delete
+    Metadata:
+      CreatedBy: AWS SAM CLI sync command
+    Properties:
+      TemplateURL: C:\Users\dunca\OneDrive\Documents\Personal Project - Smart Journal\MyServerlessApp\.aws-sam\auto-dependency-layer\adl_nested_template.yaml
+    Type: AWS::CloudFormation::Stack
