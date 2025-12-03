@@ -9,3 +9,5 @@ Run with:
 - ./lex_config.sh
 
 From there, there is a small amount of manual configuration, namely adding the Bedrock Knowledge Base manually (as this is not supported in SAM/CF currently) and hooking up the knowledge base to the QnA intent.
+
+[https://youtu.be/npjVN-kUgnc](https://youtu.be/npjVN-kUgnc)
