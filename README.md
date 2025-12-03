@@ -10,7 +10,4 @@ Run with:
 
 From there, there is a small amount of manual configuration, namely adding the Bedrock Knowledge Base manually (as this is not supported in SAM/CF currently) and hooking up the knowledge base to the QnA intent.
 
-<iframe width="560" height="315" src="https://www.youtube.com/embed/npjVN-kUgnc?si=rXGPS_TY_TZzdBlw" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>
-
-
 [![Watch the video](https://img.youtube.com/vi/npjVN-kUgnc/0.jpg)](https://www.youtube.com/watch?v=npjVN-kUgnc)
