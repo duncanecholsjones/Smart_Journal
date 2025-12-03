@@ -1,5 +1,5 @@
-# Smart_Journal
-Lex/Lambda/S3/Bedrock/SAM personal journaling application. The concept is to have a GenAI-enabled chatbot assistant be able to make updates to my personal journal via audio or text input (represented by .txt files in S3) and then use Bedrock Knowledge Base RAG retrieval to perform queries and do inference against that personal journal data.
+# Smart_Journal: AWS Serverless + GenAI Personal Journaling Assistant
+AWS Lex/Lambda/S3/Bedrock/SAM personal journaling application. The concept is to have a GenAI-enabled chatbot assistant be able to make updates to my personal journal via audio or text input (represented by .txt files in S3) and then use Bedrock Knowledge Base RAG retrieval to perform queries and do inference against that personal journal data.
 
 Run with:
 
