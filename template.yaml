@@ -1,15 +1,13 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Transform: AWS::Serverless-2016-10-31
-Description: Lex bot with Lambda fulfillment and DynamoDB
+Description: Lex bot with Lambda fulfillment and S3 journal storage (so Bedrock can query against it via RAG)
 
 Resources:
-  # DynamoDB table
-  JournalEntryTable:
-    Type: AWS::Serverless::SimpleTable
+  # S3 bucket for journal entries
+  JournalBucket:
+    Type: AWS::S3::Bucket
     Properties:
-      PrimaryKey:
-        Name: id
-        Type: String
+      BucketName: my-smart-journal-bucket
 
   # Lex Fulfillment Lambda
   LexFulfillmentLambda:
@@ -20,12 +18,12 @@ Resources:
       CodeUri: src/
       Environment:
         Variables:
-          TABLE_NAME: !Ref JournalEntryTable
+          BUCKET_NAME: !Ref JournalBucket
       Policies:
-        - DynamoDBCrudPolicy:
-            TableName: !Ref JournalEntryTable
+        - S3WritePolicy:
+            BucketName: !Ref JournalBucket
 
-  # Allow Lex to write to Lambda
+  # Allow Lex to invoke Lambda
   LexInvokePermission:
     Type: AWS::Lambda::Permission
     Properties:
@@ -33,7 +31,7 @@ Resources:
       Action: lambda:InvokeFunction
       Principal: lexv2.amazonaws.com
 
-  # Execution role for Lex
+  # IAM Role for Lex
   LexJournalBotRole:
     Type: AWS::IAM::Role
     Properties:
@@ -42,7 +40,7 @@ Resources:
         Statement:
           - Effect: Allow
             Principal:
-              Service: 
+              Service:
                 - lexv2.amazonaws.com
                 - lambda.amazonaws.com
             Action: sts:AssumeRole
@@ -64,12 +62,12 @@ Resources:
                   - polly:DescribeVoices
                 Resource: "*"
 
-  # Lex speech and text bot
+  # Lex Bot definition
   LexJournalBot:
     Type: AWS::Lex::Bot
     Properties:
       Name: "WriteJournalBot"
-      Description: "Bot for writing to my smart journal"
+      Description: "Bot for writing journal entries to S3"
       RoleArn: !GetAtt LexJournalBotRole.Arn
       DataPrivacy:
         ChildDirected: false
@@ -80,26 +78,26 @@ Resources:
           NluConfidenceThreshold: 0.4
           Intents:
             - Name: WriteJournalIntent
-              Description: "Provide a audio-based journal entry"
+              Description: "Provide a journal entry"
               SampleUtterances:
                 - Utterance: "I want to make an entry to my journal {entry}"
                 - Utterance: "Write this to my journal {entry}"
                 - Utterance: "Save this {entry}"
                 - Utterance: "Send this {entry}"
               Slots:
-              - Name: entry
-                SlotTypeName: AMAZON.AlphaNumeric
-                ValueElicitationSetting:
-                  SlotConstraint: Required
-                  PromptSpecification:
-                    MessageGroupsList:
-                      - Message:
-                          PlainTextMessage:
-                            Value: "What would you like to record in your journal?"
-                    MaxRetries: 2
+                - Name: entry
+                  SlotTypeName: AMAZON.AlphaNumeric
+                  ValueElicitationSetting:
+                    SlotConstraint: Required
+                    PromptSpecification:
+                      MessageGroupsList:
+                        - Message:
+                            PlainTextMessage:
+                              Value: "What would you like to record?"
+                      MaxRetries: 2
               SlotPriorities:
-              - SlotName: entry
-                Priority: 1
+                - SlotName: entry
+                  Priority: 1
             - Name: "FallbackIntent"
-              Description: "Default intent when no other intent matches"
+              Description: "Default intent when no intent matches"
               ParentIntentSignature: "AMAZON.FallbackIntent"
